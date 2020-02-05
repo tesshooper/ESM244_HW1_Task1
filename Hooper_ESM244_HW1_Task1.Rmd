@@ -1,0 +1,229 @@
+---
+title: "ESM244 HW1 Task1"
+author: "Tess Hooper"
+date: "1/30/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F)
+
+
+### Load Packages
+
+library(tidyverse)
+library(knitr)
+library(janitor)
+library(dplyr)
+library(lubridate)
+library(dplyr)
+library(ggridges)
+library(kableExtra)
+library(plotly)
+
+
+### Read in data
+
+snowshoe <- read_csv("showshoe_lter.csv")
+
+
+### Variables to visualize: sex, weight, abundnance 
+
+## Add in a photo of snowshoe hares and map of range in Bonanza Creek
+## Total Abundance of hares 
+## Abundance of males and females
+## Compare weights of males and females
+## Is there a statistically significant difference in weighst between males and females 
+
+## 3380 observations taken 
+## After wrangling for confirmed male/female -- 2628 
+```
+<br>
+
+
+### ***Summary***
+
+Snowshoe Hare, *Lepus americanus*, is a species of hare found in North America, primarily in the northern boreal forests. It is a keystone prey species and can experience fluctions in population density. This analysis explores these fluctuations in a population of snowshoe hares in the Bonanza Creek Experimental Forest from 1999 to 2012. Data was collected by Kielland et al. from 1999 to 2012. 
+
+**Citation:**  
+Kielland K., F. S. Chapin, R. W. Ruess. 2017. Snowshoe hare physical data in Bonanza Creek Experimental Forest: 1999-Present. Environmental Data Initiative. https://doi.org/10.6073/pasta/03dce4856d79b91557d8e6ce2cbcdc14.   
+
+
+<br>
+
+
+#### **1. Plot snowshoe hare abundance between 1999-2012, group by sex**
+```{r wrangle for abundance}
+##### Wrangle the data to inclue variables of choice: sex and weight of snowshoe hares#####
+
+
+### Total observations = 3380 (including all sex and NA values)
+### Observations with KNOWN sex = 2628 (includes M, F, m, f)
+
+
+
+#### Clean up DATE and extract YEAR
+
+snowshoe$date = as.Date(snowshoe$date, "%m/%d/%y")
+
+snowshoe$year = as.numeric(format(snowshoe$date, "%Y"))
+
+
+## Get total abundance for snowshoe hare observations by counting up total observations by year
+## Filtered out observations where the sex was unknown ******
+
+# Get counts by year/sex
+abundance <- snowshoe %>% 
+  select(year, sex, weight) %>% 
+    mutate(sex = case_when(sex =="M" ~ "Male",
+                         sex == "F" ~ "Female",
+                         sex == "f" ~ "Female",
+                         sex == "m" ~ "Male"
+                         )) %>% 
+  group_by(year, sex) %>% 
+  drop_na() %>% 
+  tally() 
+
+# Total observations for male/female with weights
+abundance_weights <- snowshoe %>% 
+  select(year, sex, weight) %>% 
+    mutate(sex = case_when(sex =="M" ~ "Male",
+                         sex == "F" ~ "Female",
+                         sex == "f" ~ "Female",
+                         sex == "m" ~ "Male"
+                         )) %>%  
+  drop_na()  
+
+# Plot Total Abundance 
+abundance_plotly <- ggplot(abundance, aes(x = year, y = n)) + 
+  geom_line(aes(color = sex, text = n)) + 
+  ggtitle("Population Density of Snowshoe Hares in the \n Bonanza Creek Experimental Forest, 1999-2012") +
+  theme_classic() +
+  xlab("Year") +
+  ylab("Number of Snowshoe Hares Recorded") + 
+  theme(plot.title=element_text(hjust=0.5)) +
+  labs(color = "Sex")
+
+  
+
+abundance_plotly <- ggplotly(abundance_plotly)
+abundance_plotly
+
+```
+<br>
+
+**Figure 1. Population Density of Snowshoe Hares, 1999-2012.** Capture and re-capture studies were conducted on a snowshoe hare population in Bonanza Creek Experimental forest between 1999 and 2012. Data was collected on the sex, weight, and highfeet length. This graph only shows data for snowshoe hares where the sex was confirmed. Total observations during the study period were n = 3380. Observations including hares with known sex is n = 2628.
+<br>
+
+There is a significant increase in abundance between 1998 and 1999 for both males and females, and then a subsequent decrease between 1999 and 2002. Between 2002 and 2009, both male and female snowshoe hares again increase in abundance and then drop off again between 2009 and 2012. Some of the driving factors for these fluctuations could be predation or changes in habitat, such as vegetation cover. 
+
+<br>
+
+```{r Summary table for abundance}
+
+### Create summary table for abundance 
+# total observations for male and female by year 
+
+
+abundance_table <- kable(abundance,
+                         col.names = c("Year", "Sex", "Count")) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover"), 
+                full_width = F, 
+                position = "float_right",
+                fixed_thead = T
+                ) %>% 
+  scroll_box(width = "200px", height = "300px")
+
+
+
+abundance_table
+
+
+```
+**Table 1. Abundance by year and sex.** Population counts by year and sex. This dataset only shows observations for hares where sex was known. 
+
+<br>
+
+
+<br>
+<br>
+
+
+#### **2. Compare weights between male and female snowshoe hares**
+```{r}
+
+
+hare_weights <- ggplot(abundance_weights, aes(x = year, y = weight)) +
+  geom_point(aes(color = sex)) +
+  xlab("Year") +
+  ylab("Weight (g)") +
+  facet_wrap(~sex) +
+  labs(color = "Sex") +
+  theme_bw()
+  
+
+hare_weights
+
+
+
+
+
+
+```
+
+**Figure 2. Snowshoe Hare weights for Males and Females.** Range of weights for male and females during study period between 1999 and 2012. 
+
+
+
+```{r Summary statistics for weights}
+
+
+# Calculate mean weight per year for males and females 
+
+avg_weight <- abundance_weights %>% 
+  group_by(year, sex) %>% 
+  summarize(
+    mean_weight = round(mean(weight), digits = 1),
+    sample = length(sex)
+  )
+
+
+
+
+# Separate Male and Female into separate dataframes 
+
+mean_weight_female <- avg_weight %>% 
+  filter(sex == "Female") %>% 
+  select(year, mean_weight, sample) %>% 
+  rename("Year" = year, "Mean Weight (g)" = mean_weight, "Count" = sample)
+
+mean_weight_male <- avg_weight %>% 
+  filter(sex == "Male") %>% 
+  select(year, mean_weight, sample) %>% 
+  rename("Year" = year, "Mean Weight (g)" = mean_weight, "Count" = sample)
+
+# Merge male and female back together
+
+weight_by_sex <- merge(mean_weight_female, mean_weight_male, by = "Year")
+
+  
+  
+
+# Create kable table for mean weights
+
+weights_table <-kable(weight_by_sex,
+                      col.names = c("Year", "Mean Weight (g)", "Count", "Mean Weight (g)", "Count")) %>% 
+  add_header_above(c(" " = 1, "Female" = 2, "Male" = 2)) %>% 
+   kable_styling(bootstrap_options = c("striped", "hover"), 
+                full_width = F, 
+                position = "left",
+                fixed_thead = T
+                ) 
+weights_table
+  
+
+```
+<br>
+**Table 2. Mean Weight for Male and Female Snowshoe Hares (1999-2012).** Mean weight for male and female hares for each year of the study period and count for each year. The highest mean weight for both males and females was during 1998.
